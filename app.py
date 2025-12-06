@@ -8,6 +8,15 @@ st.set_page_config(page_title="Amazon Returns Analysis", page_icon="📦", layou
 st.title("📦 Amazon Returns Analysis Tool")
 st.markdown("Process and analyze Amazon return data with reimbursement and replacement tracking")
 
+# ---------- Helper to avoid PyArrow type issues ----------
+def make_arrow_safe(df: pd.DataFrame) -> pd.DataFrame:
+    """Convert all object columns to string to avoid PyArrow ArrowTypeError."""
+    df = df.copy()
+    for col in df.columns:
+        if df[col].dtype == "object":
+            df[col] = df[col].astype(str)
+    return df
+
 # File upload section
 st.header("1️⃣ Upload Files")
 col1, col2, col3 = st.columns(3)
@@ -76,6 +85,13 @@ if returns_file and reimb_file and replacement_file:
             returns = pd.read_excel(returns_file)
             reimb = pd.read_excel(reimb_file)
             replacement = pd.read_excel(replacement_file)
+
+            # 🔧 Immediately normalize sku and other object columns in raw data
+            if 'sku' in returns.columns:
+                returns['sku'] = returns['sku'].astype(str)
+            returns = make_arrow_safe(returns)
+            reimb = make_arrow_safe(reimb)
+            replacement = make_arrow_safe(replacement)
             
             st.success("✅ Files loaded successfully!")
             
@@ -102,18 +118,33 @@ if returns_file and reimb_file and replacement_file:
             returns['Date_Diff'] = (pd.to_datetime(returns['Today']) - 
                                    pd.to_datetime(returns['return-date1'])).dt.days
             
-            # Filter where difference > 45
-            returns_45 = returns[returns['Date_Diff'] > 40].copy()
+            # 🔢 User-controlled days filter (instead of hard-coded 40)
+            st.subheader("📅 Enter Days Filter")
+            days_filter = st.number_input(
+                "Show returns older than (days):",
+                min_value=0,
+                max_value=365,
+                value=40,    # default value
+                step=1,
+                help="Enter any number of days (e.g. 10, 12, 40, 45...)"
+            )
             
-            st.metric("Returns older than 40 days", len(returns_45))
+            # Filter where difference > user-entered days
+            returns_45 = returns[returns['Date_Diff'] > days_filter].copy()
+            returns_45 = make_arrow_safe(returns_45)
+            
+            st.metric(f"Returns older than {int(days_filter)} days", len(returns_45))
             
             # Filter reimbursement
             reimb_filtered = reimb[reimb['reason'].isin(['CustomerReturn', 'CustomerServiceIssue'])].copy()
+            reimb_filtered = make_arrow_safe(reimb_filtered)
             
             # VLOOKUP for reimbursement reason
-            result_merge = safe_vlookup(returns_45, reimb_filtered,
-                                       left_on='order-id', right_on='amazon-order-id',
-                                       return_col='reason', how_mode='merge')
+            result_merge = safe_vlookup(
+                returns_45, reimb_filtered,
+                left_on='order-id', right_on='amazon-order-id',
+                return_col='reason', how_mode='merge'
+            )
             
             # Extract Amount Total
             result_merge['Amount_Total'] = returns['order-id'].map(
@@ -157,7 +188,12 @@ if returns_file and reimb_file and replacement_file:
             )
             
             # Filter where replacement order ID is N/A
-            returns_final = returns_final[returns_final['Replacement_OrderId'].isna()]
+            returns_final = returns_final[returns_final['Replacement_OrderId'].isna()].copy()
+            
+            # 🔧 Make final DF Arrow-safe (including sku)
+            if 'sku' in returns_final.columns:
+                returns_final['sku'] = returns_final['sku'].astype(str)
+            returns_final = make_arrow_safe(returns_final)
             
             st.metric("Final eligible returns", len(returns_final))
             
@@ -202,16 +238,26 @@ if returns_file and reimb_file and replacement_file:
                     with col1:
                         st.subheader("Top SKUs by Count")
                         top_skus = returns_final['sku'].value_counts().head(10)
-                        st.bar_chart(top_skus)
+                        # value_counts() gives a Series; convert to DF for safety
+                        top_skus_df = top_skus.reset_index()
+                        top_skus_df.columns = ['sku', 'count']
+                        top_skus_df = make_arrow_safe(top_skus_df)
+                        st.bar_chart(top_skus_df.set_index('sku'))
                     
                     with col2:
                         st.subheader("Returns by Fulfillment Center")
                         fc_counts = returns_final['fulfillment-center-id'].value_counts()
-                        st.bar_chart(fc_counts)
+                        fc_df = fc_counts.reset_index()
+                        fc_df.columns = ['fulfillment-center-id', 'count']
+                        fc_df = make_arrow_safe(fc_df)
+                        st.bar_chart(fc_df.set_index('fulfillment-center-id'))
                     
                     st.subheader("Returns by Reason")
                     reason_counts = returns_final['reason'].value_counts()
-                    st.bar_chart(reason_counts)
+                    reason_df = reason_counts.reset_index()
+                    reason_df.columns = ['reason', 'count']
+                    reason_df = make_arrow_safe(reason_df)
+                    st.bar_chart(reason_df.set_index('reason'))
                 
             else:
                 st.info("ℹ️ No returns found matching the criteria (damaged items without reimbursement or replacement)")
@@ -231,7 +277,7 @@ else:
         4. **Download Report**: Download the processed Excel report
         
         ### What this tool does:
-        - Filters returns older than 40 days
+        - Filters returns older than a user-defined number of days
         - Identifies damaged items (CARRIER_DAMAGED, CUSTOMER_DAMAGED, DAMAGED)
         - Excludes items already reimbursed
         - Excludes items with replacement orders
@@ -241,3 +287,4 @@ else:
         ### Output:
         The final report contains returns that are eligible for reimbursement claims with Amazon.
         """)
+
