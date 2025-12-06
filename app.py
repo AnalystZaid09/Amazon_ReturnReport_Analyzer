@@ -10,11 +10,15 @@ st.markdown("Process and analyze Amazon return data with reimbursement and repla
 
 # ---------- Helper to avoid PyArrow type issues ----------
 def make_arrow_safe(df: pd.DataFrame) -> pd.DataFrame:
-    """Convert all object columns to string to avoid PyArrow ArrowTypeError."""
+    """Convert all object columns (and index) to string to avoid PyArrow ArrowTypeError."""
     df = df.copy()
+    # Fix columns
     for col in df.columns:
         if df[col].dtype == "object":
             df[col] = df[col].astype(str)
+    # Fix index
+    if df.index.dtype == "object":
+        df.index = df.index.astype(str)
     return df
 
 # File upload section
@@ -99,11 +103,11 @@ if returns_file and reimb_file and replacement_file:
             with st.expander("📊 View Raw Data Preview"):
                 tab1, tab2, tab3 = st.tabs(["Returns", "Reimbursement", "Replacement"])
                 with tab1:
-                    st.dataframe(returns.head(), use_container_width=True)
+                    st.dataframe(returns.head(), width="stretch")
                 with tab2:
-                    st.dataframe(reimb.head(), use_container_width=True)
+                    st.dataframe(reimb.head(), width="stretch")
                 with tab3:
-                    st.dataframe(replacement.head(), use_container_width=True)
+                    st.dataframe(replacement.head(), width="stretch")
             
             # Processing
             st.header("2️⃣ Data Processing")
@@ -217,7 +221,7 @@ if returns_file and reimb_file and replacement_file:
                 
                 # Show data
                 st.subheader("📋 Final Returns Data")
-                st.dataframe(returns_final, use_container_width=True)
+                st.dataframe(returns_final, width="stretch")
                 
                 # Download button
                 buffer = io.BytesIO()
@@ -238,26 +242,28 @@ if returns_file and reimb_file and replacement_file:
                     with col1:
                         st.subheader("Top SKUs by Count")
                         top_skus = returns_final['sku'].value_counts().head(10)
-                        # value_counts() gives a Series; convert to DF for safety
                         top_skus_df = top_skus.reset_index()
                         top_skus_df.columns = ['sku', 'count']
-                        top_skus_df = make_arrow_safe(top_skus_df)
-                        st.bar_chart(top_skus_df.set_index('sku'))
+                        chart_sku_df = top_skus_df.set_index('sku')
+                        chart_sku_df = make_arrow_safe(chart_sku_df)
+                        st.bar_chart(chart_sku_df)
                     
                     with col2:
                         st.subheader("Returns by Fulfillment Center")
                         fc_counts = returns_final['fulfillment-center-id'].value_counts()
                         fc_df = fc_counts.reset_index()
                         fc_df.columns = ['fulfillment-center-id', 'count']
-                        fc_df = make_arrow_safe(fc_df)
-                        st.bar_chart(fc_df.set_index('fulfillment-center-id'))
+                        chart_fc_df = fc_df.set_index('fulfillment-center-id')
+                        chart_fc_df = make_arrow_safe(chart_fc_df)
+                        st.bar_chart(chart_fc_df)
                     
                     st.subheader("Returns by Reason")
                     reason_counts = returns_final['reason'].value_counts()
                     reason_df = reason_counts.reset_index()
                     reason_df.columns = ['reason', 'count']
-                    reason_df = make_arrow_safe(reason_df)
-                    st.bar_chart(reason_df.set_index('reason'))
+                    chart_reason_df = reason_df.set_index('reason')
+                    chart_reason_df = make_arrow_safe(chart_reason_df)
+                    st.bar_chart(chart_reason_df)
                 
             else:
                 st.info("ℹ️ No returns found matching the criteria (damaged items without reimbursement or replacement)")
@@ -287,4 +293,3 @@ else:
         ### Output:
         The final report contains returns that are eligible for reimbursement claims with Amazon.
         """)
-
