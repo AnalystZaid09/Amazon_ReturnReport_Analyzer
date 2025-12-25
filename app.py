@@ -5,7 +5,7 @@ import io
 
 st.set_page_config(page_title="Amazon Returns Analysis", page_icon="📦", layout="wide")
 
-st.title("📦 Amazon Returns Analysis Tool")
+st.title("📦 Amazon Returns Data Analysis")
 st.markdown("Process and analyze Amazon return data with reimbursement and replacement tracking")
 
 # ---------- Helper to avoid PyArrow type issues ----------
@@ -312,5 +312,6 @@ else:
         ### Output:
         The final report contains returns that are eligible for reimbursement claims with Amazon.
         """)
+
 
 
