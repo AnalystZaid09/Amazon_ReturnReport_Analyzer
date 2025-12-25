@@ -26,11 +26,11 @@ st.header("1️⃣ Upload Files")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    returns_file = st.file_uploader("Upload Returns.xlsx", type=['xlsx'], key='returns')
+    returns_file = st.file_uploader("Upload Returns File", type=['xlsx','csv'], key='returns')
 with col2:
-    reimb_file = st.file_uploader("Upload Reimbursement.xlsx", type=['xlsx'], key='reimb')
+    reimb_file = st.file_uploader("Upload Reimbursement File", type=['xlsx','csv'], key='reimb')
 with col3:
-    replacement_file = st.file_uploader("Upload Replacement.xlsx", type=['xlsx'], key='replacement')
+    replacement_file = st.file_uploader("Upload Replacement File", type=['xlsx','csv'], key='replacement')
 
 def safe_vlookup(left_df, right_df, left_on, right_on, return_col=None, 
                  how_mode="map", duplicate_strategy="first"):
@@ -81,14 +81,22 @@ def safe_vlookup(left_df, right_df, left_on, right_on, return_col=None,
         )
         return merged
 
+def read_any_file(file, sheet_name=None):
+    if file.name.lower().endswith(".csv"):
+        return pd.read_csv(file)
+    else:
+        if sheet_name:
+            return pd.read_excel(file, sheet_name=sheet_name)
+        return pd.read_excel(file)
+
 # Process data when all files are uploaded
 if returns_file and reimb_file and replacement_file:
     with st.spinner("Processing data..."):
         try:
             # Read files
-            returns = pd.read_excel(returns_file)
-            reimb = pd.read_excel(reimb_file)
-            replacement = pd.read_excel(replacement_file)
+            returns = read_any_file(returns_file)
+            reimb = read_any_file(reimb_file)
+            replacement = read_any_file(replacement_file)
 
             # 🔧 Immediately normalize sku and other object columns in raw data
             if 'sku' in returns.columns:
@@ -293,3 +301,4 @@ else:
         ### Output:
         The final report contains returns that are eligible for reimbursement claims with Amazon.
         """)
+
