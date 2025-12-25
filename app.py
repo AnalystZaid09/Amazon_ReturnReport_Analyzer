@@ -32,6 +32,17 @@ with col2:
 with col3:
     replacement_file = st.file_uploader("Upload Replacement File", type=['xlsx','csv'], key='replacement')
 
+st.markdown("---")
+if st.button("🚀 Process Data", type="primary", use_container_width=True):
+    if not (returns_file and reimb_file and replacement_file and bulk_rto_file and reimb_file):
+        st.warning("⚠ Please upload all required files first!")
+        st.stop()
+    with st.spinner("Processing data..."):
+        results = process_replacement_data(returns_file, reimb_file, replacement_file, bulk_rto_file, reimb_file, days_threshold)
+        if results:
+            st.success("✅ Data processed successfully!")
+            st.session_state["results"] = results
+
 def safe_vlookup(left_df, right_df, left_on, right_on, return_col=None, 
                  how_mode="map", duplicate_strategy="first"):
     """Safe VLOOKUP-like function"""
@@ -301,4 +312,5 @@ else:
         ### Output:
         The final report contains returns that are eligible for reimbursement claims with Amazon.
         """)
+
 
