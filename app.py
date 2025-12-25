@@ -34,11 +34,11 @@ with col3:
 
 st.markdown("---")
 if st.button("🚀 Process Data", type="primary", use_container_width=True):
-    if not (returns_file and reimb_file and replacement_file and bulk_rto_file and reimb_file):
+    if not (returns_file and reimb_file and replacement_file):
         st.warning("⚠ Please upload all required files first!")
         st.stop()
     with st.spinner("Processing data..."):
-        results = process_replacement_data(returns_file, reimb_file, replacement_file, bulk_rto_file, reimb_file, days_threshold)
+        results = process_replacement_data(returns_file, reimb_file, replacement_file,days_threshold)
         if results:
             st.success("✅ Data processed successfully!")
             st.session_state["results"] = results
@@ -312,6 +312,7 @@ else:
         ### Output:
         The final report contains returns that are eligible for reimbursement claims with Amazon.
         """)
+
 
 
 
